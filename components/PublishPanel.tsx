@@ -1,7 +1,7 @@
-import { useState } from 'react'
-import { Text, Button } from '@vercel/examples-ui'
-import dynamic from 'next/dynamic'
 import { Editor } from '@monaco-editor/react'
+import { Button, Text } from '@vercel/examples-ui'
+import dynamic from 'next/dynamic'
+import { useState } from 'react'
 
 const MarkdownPreview = dynamic(() => import('./MarkdownPreview'), {
   ssr: false,
@@ -97,7 +97,7 @@ export function PublishPanel({ apiKey }: PublishPanelProps) {
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
           >
             <option value="devto">DEV.to</option>
-            <option value="medium">Medium</option>
+            <option value="hashnode">Hashnode</option>
           </select>
         </div>
 

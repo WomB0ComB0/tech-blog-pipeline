@@ -1,11 +1,11 @@
-import type { NextApiRequest, NextApiResponse } from 'next'
+import type { NextApiRequest, NextApiResponse } from 'next';
 
 interface PublishRequest {
   title: string;
   content: string;
   tags: string[];
   is_draft?: boolean;
-  platforms: ('devto' | 'medium')[];
+  platforms: ('devto' | 'hashnode')[];
 }
 
 interface PublishResult {
@@ -56,40 +56,45 @@ async function publishToDevTo(data: PublishRequest): Promise<any> {
   return await response.json();
 }
 
-async function publishToMedium(data: PublishRequest): Promise<any> {
-  const apiKey = process.env.MEDIUM_API_KEY;
+async function publishToHashnode(data: PublishRequest): Promise<any> {
+  const apiKey = process.env.HASHNODE_API_KEY;
   if (!apiKey) {
-    throw new Error('MEDIUM_API_KEY not configured');
+    throw new Error('HASHNODE_API_KEY not configured');
   }
 
-  // First, get the user's ID
-  const userResponse = await fetch('https://api.medium.com/v1/me', {
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-    },
-  });
+  // Hashnode uses GraphQL API
+  const mutation = `
+    mutation PublishPost($input: PublishPostInput!) {
+      publishPost(input: $input) {
+        post {
+          id
+          title
+          url
+          slug
+        }
+      }
+    }
+  `;
 
-  if (!userResponse.ok) {
-    const error = await userResponse.json();
-    throw new Error(JSON.stringify(error));
-  }
+  const variables = {
+    input: {
+      title: data.title,
+      contentMarkdown: data.content,
+      tags: data.tags.map(tag => ({ name: tag, slug: tag.toLowerCase().replace(/\s+/g, '-') })),
+      publicationId: process.env.HASHNODE_PUBLICATION_ID,
+      ...(data.is_draft ? {} : { publishedAt: new Date().toISOString() })
+    }
+  };
 
-  const userData = await userResponse.json();
-  const mediumUserId = userData.data.id;
-
-  // Then publish the post
-  const response = await fetch(`https://api.medium.com/v1/users/${mediumUserId}/posts`, {
+  const response = await fetch('https://gql.hashnode.com', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
+      'Authorization': apiKey,
     },
     body: JSON.stringify({
-      title: data.title,
-      contentFormat: 'markdown',
-      content: data.content,
-      tags: data.tags,
-      publishStatus: data.is_draft ? 'draft' : 'public',
+      query: mutation,
+      variables,
     }),
   });
 
@@ -98,7 +103,12 @@ async function publishToMedium(data: PublishRequest): Promise<any> {
     throw new Error(JSON.stringify(error));
   }
 
-  return await response.json();
+  const result = await response.json();
+  if (result.errors) {
+    throw new Error(JSON.stringify(result.errors));
+  }
+
+  return result.data.publishPost.post;
 }
 
 export default async function publishMulti(req: NextApiRequest, res: NextApiResponse) {
@@ -136,8 +146,8 @@ export default async function publishMulti(req: NextApiRequest, res: NextApiResp
         let article;
         if (platform === 'devto') {
           article = await publishToDevTo(publishData);
-        } else if (platform === 'medium') {
-          article = await publishToMedium(publishData);
+        } else if (platform === 'hashnode') {
+          article = await publishToHashnode(publishData);
         } else {
           throw new Error(`Unsupported platform: ${platform}`);
         }

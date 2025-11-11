@@ -1,9 +1,8 @@
 import { Text } from '@vercel/examples-ui'
+import { useState } from 'react'
+import { deleteMediaKey, fetchMediaKeys, MediaKeys, saveMediaKey } from '../lib/media-keys'
 import { MediaKeyForm } from './MediaKeyForm'
 import { MediaKeyTable } from './MediaKeyTable'
-import { MediaKeys } from '../lib/media-keys'
-import { fetchMediaKeys, saveMediaKey, deleteMediaKey } from '../lib/media-keys'
-import { useState } from 'react'
 
 interface MediaKeyPanelProps {
   mediaKeys: MediaKeys;
@@ -68,7 +67,7 @@ export function MediaKeyPanel({
             <p>Required keys for publishing platforms:</p>
             <ul className="list-disc pl-5">
               <li><strong>dev.to:</strong> Provide DEV_TO_APIKEY</li>
-              <li><strong>Medium:</strong> Provide MEDIUM_APIKEY</li>
+              <li><strong>Hashnode:</strong> Provide HASHNODE_APIKEY and HASHNODE_PUBLICATION_ID</li>
             </ul>
           </div>
 

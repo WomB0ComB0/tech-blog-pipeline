@@ -1,11 +1,11 @@
-import type { NextApiRequest, NextApiResponse } from 'next'
-import { base64url } from 'jose'
 import { API_KEYS, MEDIA_KEYS } from '@lib/api/constants'
 import type { ApiTokenPayload } from '@lib/api/keys'
 import { upstashRest } from '@lib/upstash'
+import { base64url } from 'jose'
+import type { NextApiRequest, NextApiResponse } from 'next'
 
 // Add type definitions for supported platforms
-type MediaPlatform = 'devto' | 'medium'
+type MediaPlatform = 'devto' | 'hashnode'
 
 interface PublishRequest {
   title: string;
@@ -55,44 +55,57 @@ async function publishToDevTo(jti: string, data: PublishRequest): Promise<Publis
   return { done: true, article };
 }
 
-async function publishToMedium(jti: string, data: PublishRequest): Promise<PublishResponse> {
-  // Get Medium API key
-  const mediaKeyId = `${jti}:MEDIUM_APIKEY`;
+async function publishToHashnode(jti: string, data: PublishRequest): Promise<PublishResponse> {
+  // Get Hashnode API key
+  const mediaKeyId = `${jti}:HASHNODE_APIKEY`;
   const result = await upstashRest(['HGET', MEDIA_KEYS, mediaKeyId]);
   const apiKey = result.result;
 
   if (!apiKey) {
-    throw new Error('Medium API key not found');
+    throw new Error('Hashnode API key not found');
   }
 
-  // First, get the user's ID using the /me endpoint
-  const userResponse = await fetch('https://api.medium.com/v1/me', {
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-    },
-  });
+  // Get publication ID
+  const pubIdResult = await upstashRest(['HGET', MEDIA_KEYS, `${jti}:HASHNODE_PUBLICATION_ID`]);
+  const publicationId = pubIdResult.result;
 
-  if (!userResponse.ok) {
-    const error = await userResponse.json();
-    throw new Error(JSON.stringify(error));
+  if (!publicationId) {
+    throw new Error('Hashnode publication ID not found');
   }
 
-  const userData = await userResponse.json();
-  const mediumUserId = userData.data.id;
+  // Hashnode uses GraphQL API
+  const mutation = `
+    mutation PublishPost($input: PublishPostInput!) {
+      publishPost(input: $input) {
+        post {
+          id
+          title
+          url
+          slug
+        }
+      }
+    }
+  `;
 
-  // Then publish the post using the user ID
-  const response = await fetch(`https://api.medium.com/v1/users/${mediumUserId}/posts`, {
+  const variables = {
+    input: {
+      title: data.title,
+      contentMarkdown: data.content,
+      tags: data.tags.map(tag => ({ name: tag, slug: tag.toLowerCase().replace(/\s+/g, '-') })),
+      publicationId,
+      ...(data.is_draft ? {} : { publishedAt: new Date().toISOString() })
+    }
+  };
+
+  const response = await fetch('https://gql.hashnode.com', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
+      'Authorization': apiKey,
     },
     body: JSON.stringify({
-      title: data.title,
-      contentFormat: 'markdown',
-      content: data.content,
-      tags: data.tags,
-      publishStatus: data.is_draft ? 'draft' : 'public',
+      query: mutation,
+      variables,
     }),
   });
 
@@ -101,8 +114,12 @@ async function publishToMedium(jti: string, data: PublishRequest): Promise<Publi
     throw new Error(JSON.stringify(error));
   }
 
-  const article = await response.json();
-  return { done: true, article };
+  const responseData = await response.json();
+  if (responseData.errors) {
+    throw new Error(JSON.stringify(responseData.errors));
+  }
+
+  return { done: true, article: responseData.data.publishPost.post };
 }
 
 // Reuse the decode helper function
@@ -139,7 +156,7 @@ export default async function publishMedia(req: NextApiRequest, res: NextApiResp
 
   // Get media type from URL parameter
   const { media } = req.query as { media: MediaPlatform };
-  if (!['devto', 'medium'].includes(media)) {
+  if (!['devto', 'hashnode'].includes(media)) {
     return res.status(400).json({ error: { message: 'Unsupported media type' } });
   }
 
@@ -159,8 +176,8 @@ export default async function publishMedia(req: NextApiRequest, res: NextApiResp
       case 'devto':
         response = await publishToDevTo(payload.jti, publishData);
         break;
-      case 'medium':
-        response = await publishToMedium(payload.jti, publishData);
+      case 'hashnode':
+        response = await publishToHashnode(payload.jti, publishData);
         break;
       default:
         throw new Error('Unsupported media type');

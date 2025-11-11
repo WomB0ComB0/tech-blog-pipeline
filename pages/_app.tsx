@@ -1,7 +1,7 @@
+import '@vercel/examples-ui/globals.css'
 import type { AppProps } from 'next/app'
 import { SWRConfig } from 'swr'
-import Layout from '../components/Layout'  // Changed this line
-import '@vercel/examples-ui/globals.css'
+import Layout from '../components/Layout'; // Changed this line
 
 export default function MyApp({ Component, pageProps }: AppProps) {
   return (

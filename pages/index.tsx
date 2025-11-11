@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Page, Text, Input, Button } from '@vercel/examples-ui'
+import { Button, Input, Page, Text } from '@vercel/examples-ui';
+import { useState } from 'react';
 
 interface PublishResult {
   platform: string;
@@ -14,9 +14,9 @@ function MediaPublisher() {
   const [content, setContent] = useState<string>('')
   const [tags, setTags] = useState<string>('')
   const [isDraft, setIsDraft] = useState<boolean>(true)
-  const [platforms, setPlatforms] = useState<{devto: boolean, medium: boolean}>({
+  const [platforms, setPlatforms] = useState<{devto: boolean, hashnode: boolean}>({
     devto: true,
-    medium: false
+    hashnode: false
   })
   const [loading, setLoading] = useState<boolean>(false)
   const [results, setResults] = useState<PublishResult[] | null>(null)
@@ -68,7 +68,7 @@ function MediaPublisher() {
             Multi-Platform Media Publisher
           </Text>
           <Text className="text-white text-xl opacity-90">
-            Publish your content to Dev.to and Medium simultaneously
+            Publish your content to Dev.to and Hashnode simultaneously
           </Text>
         </div>
       </section>
@@ -81,7 +81,8 @@ function MediaPublisher() {
           <ul className="list-disc list-inside ml-4 space-y-1">
             <li><code className="bg-blue-100 px-2 py-1 rounded">PUBLISH_PASSWORD</code> - Your admin password</li>
             <li><code className="bg-blue-100 px-2 py-1 rounded">DEV_TO_API_KEY</code> - Your Dev.to API key (get from <a href="https://dev.to/settings/extensions" target="_blank" className="text-blue-600 underline">dev.to/settings/extensions</a>)</li>
-            <li><code className="bg-blue-100 px-2 py-1 rounded">MEDIUM_API_KEY</code> - Your Medium integration token (get from <a href="https://medium.com/me/settings" target="_blank" className="text-blue-600 underline">medium.com/me/settings</a>)</li>
+            <li><code className="bg-blue-100 px-2 py-1 rounded">HASHNODE_API_KEY</code> - Your Hashnode API key (get from <a href="https://hashnode.com/settings/developer" target="_blank" className="text-blue-600 underline">hashnode.com/settings/developer</a>)</li>
+            <li><code className="bg-blue-100 px-2 py-1 rounded">HASHNODE_PUBLICATION_ID</code> - Your Hashnode publication ID</li>
           </ul>
           <p><strong>2. Fill the Form:</strong> Enter your password, article title, content (in Markdown), and comma-separated tags</p>
           <p><strong>3. Select Platforms:</strong> Choose which platforms to publish to</p>
@@ -103,7 +104,7 @@ function MediaPublisher() {
     "content": "# Hello World\\n\\nThis is my article.",
     "tags": ["tech", "tutorial"],
     "is_draft": true,
-    "platforms": ["devto", "medium"]
+    "platforms": ["devto", "hashnode"]
   }'`}
         </pre>
       </section>
@@ -182,11 +183,11 @@ function MediaPublisher() {
               <label className="flex items-center space-x-2">
                 <input
                   type="checkbox"
-                  checked={platforms.medium}
-                  onChange={(e) => setPlatforms({...platforms, medium: e.target.checked})}
+                  checked={platforms.hashnode}
+                  onChange={(e) => setPlatforms({...platforms, hashnode: e.target.checked})}
                   className="rounded"
                 />
-                <span className="text-sm">Medium</span>
+                <span className="text-sm">Hashnode</span>
               </label>
             </div>
           </div>
