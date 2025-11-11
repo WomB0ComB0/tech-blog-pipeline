@@ -1,17 +1,14 @@
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface MarkdownPreviewProps {
-  content: string
+	content: string;
 }
 
 export default function MarkdownPreview({ content }: MarkdownPreviewProps) {
-  return (
-    <ReactMarkdown 
-      remarkPlugins={[remarkGfm]}
-      className="markdown-preview"
-    >
-      {content}
-    </ReactMarkdown>
-  )
+	return (
+		<ReactMarkdown remarkPlugins={[remarkGfm]} className="markdown-preview">
+			{content}
+		</ReactMarkdown>
+	);
 }

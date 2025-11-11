@@ -1,80 +1,90 @@
-import { API_KEYS, MEDIA_KEYS } from '@lib/api/constants'
-import type { ApiTokenPayload } from '@lib/api/keys'
-import { upstashRest } from '@lib/upstash'
-import { base64url } from 'jose'
-import type { NextApiRequest, NextApiResponse } from 'next'
+import { API_KEYS, MEDIA_KEYS } from "@lib/api/constants";
+import type { ApiTokenPayload } from "@lib/api/keys";
+import { upstashRest } from "@lib/upstash";
+import { base64url } from "jose";
+import type { NextApiRequest, NextApiResponse } from "next";
 
 // Add type definitions for supported platforms
-type MediaPlatform = 'devto' | 'hashnode'
+type MediaPlatform = "devto" | "hashnode";
 
 interface PublishRequest {
-  title: string;
-  content: string;
-  tags: string[];
-  is_draft?: boolean;
+	title: string;
+	content: string;
+	tags: string[];
+	is_draft?: boolean;
 }
 
 interface PublishResponse {
-  done: boolean;
-  article: any;
+	done: boolean;
+	article: any;
 }
 
 // Updated platform-specific publishing functions with API key fetching
-async function publishToDevTo(jti: string, data: PublishRequest): Promise<PublishResponse> {
-  // Get DevTo API key using the correct identifier
-  const mediaKeyId = `${jti}:DEV_TO_APIKEY`;
-  const result = await upstashRest(['HGET', MEDIA_KEYS, mediaKeyId]);
-  const apiKey = result.result;
-  console.log('result', result);
-  if (!apiKey) {
-    throw new Error('DevTo API key not found');
-  }
+async function publishToDevTo(
+	jti: string,
+	data: PublishRequest,
+): Promise<PublishResponse> {
+	// Get DevTo API key using the correct identifier
+	const mediaKeyId = `${jti}:DEV_TO_APIKEY`;
+	const result = await upstashRest(["HGET", MEDIA_KEYS, mediaKeyId]);
+	const apiKey = result.result;
+	console.log("result", result);
+	if (!apiKey) {
+		throw new Error("DevTo API key not found");
+	}
 
-  const response = await fetch('https://dev.to/api/articles', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'api-key': apiKey,
-    },
-    body: JSON.stringify({
-      article: {
-        title: data.title,
-        body_markdown: data.content,
-        tags: data.tags,
-        published: !data.is_draft,
-      },
-    }),
-  });
+	const response = await fetch("https://dev.to/api/articles", {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+			"api-key": apiKey,
+		},
+		body: JSON.stringify({
+			article: {
+				title: data.title,
+				body_markdown: data.content,
+				tags: data.tags,
+				published: !data.is_draft,
+			},
+		}),
+	});
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(JSON.stringify(error));
-  }
+	if (!response.ok) {
+		const error = await response.json();
+		throw new Error(JSON.stringify(error));
+	}
 
-  const article = await response.json();
-  return { done: true, article };
+	const article = await response.json();
+	return { done: true, article };
 }
 
-async function publishToHashnode(jti: string, data: PublishRequest): Promise<PublishResponse> {
-  // Get Hashnode API key
-  const mediaKeyId = `${jti}:HASHNODE_APIKEY`;
-  const result = await upstashRest(['HGET', MEDIA_KEYS, mediaKeyId]);
-  const apiKey = result.result;
+async function publishToHashnode(
+	jti: string,
+	data: PublishRequest,
+): Promise<PublishResponse> {
+	// Get Hashnode API key
+	const mediaKeyId = `${jti}:HASHNODE_APIKEY`;
+	const result = await upstashRest(["HGET", MEDIA_KEYS, mediaKeyId]);
+	const apiKey = result.result;
 
-  if (!apiKey) {
-    throw new Error('Hashnode API key not found');
-  }
+	if (!apiKey) {
+		throw new Error("Hashnode API key not found");
+	}
 
-  // Get publication ID
-  const pubIdResult = await upstashRest(['HGET', MEDIA_KEYS, `${jti}:HASHNODE_PUBLICATION_ID`]);
-  const publicationId = pubIdResult.result;
+	// Get publication ID
+	const pubIdResult = await upstashRest([
+		"HGET",
+		MEDIA_KEYS,
+		`${jti}:HASHNODE_PUBLICATION_ID`,
+	]);
+	const publicationId = pubIdResult.result;
 
-  if (!publicationId) {
-    throw new Error('Hashnode publication ID not found');
-  }
+	if (!publicationId) {
+		throw new Error("Hashnode publication ID not found");
+	}
 
-  // Hashnode uses GraphQL API
-  const mutation = `
+	// Hashnode uses GraphQL API
+	const mutation = `
     mutation PublishPost($input: PublishPostInput!) {
       publishPost(input: $input) {
         post {
@@ -87,110 +97,122 @@ async function publishToHashnode(jti: string, data: PublishRequest): Promise<Pub
     }
   `;
 
-  const variables = {
-    input: {
-      title: data.title,
-      contentMarkdown: data.content,
-      tags: data.tags.map(tag => ({ name: tag, slug: tag.toLowerCase().replace(/\s+/g, '-') })),
-      publicationId,
-      ...(data.is_draft ? {} : { publishedAt: new Date().toISOString() })
-    }
-  };
+	const variables = {
+		input: {
+			title: data.title,
+			contentMarkdown: data.content,
+			tags: data.tags.map((tag) => ({
+				name: tag,
+				slug: tag.toLowerCase().replace(/\s+/g, "-"),
+			})),
+			publicationId,
+			...(data.is_draft ? {} : { publishedAt: new Date().toISOString() }),
+		},
+	};
 
-  const response = await fetch('https://gql.hashnode.com', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': apiKey,
-    },
-    body: JSON.stringify({
-      query: mutation,
-      variables,
-    }),
-  });
+	const response = await fetch("https://gql.hashnode.com", {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+			Authorization: apiKey,
+		},
+		body: JSON.stringify({
+			query: mutation,
+			variables,
+		}),
+	});
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(JSON.stringify(error));
-  }
+	if (!response.ok) {
+		const error = await response.json();
+		throw new Error(JSON.stringify(error));
+	}
 
-  const responseData = await response.json();
-  if (responseData.errors) {
-    throw new Error(JSON.stringify(responseData.errors));
-  }
+	const responseData = await response.json();
+	if (responseData.errors) {
+		throw new Error(JSON.stringify(responseData.errors));
+	}
 
-  return { done: true, article: responseData.data.publishPost.post };
+	return { done: true, article: responseData.data.publishPost.post };
 }
 
 // Reuse the decode helper function
 const decode = (jwt: string) =>
-  JSON.parse(new TextDecoder().decode(base64url.decode(jwt.split('.')[1])))
+	JSON.parse(new TextDecoder().decode(base64url.decode(jwt.split(".")[1])));
 
 // Validate API key middleware (reused from mediakeys.ts)
-const validateApiKey = async (apiKey: string): Promise<ApiTokenPayload | null> => {
-  try {
-    const payload = decode(apiKey) as ApiTokenPayload
-    const result = await upstashRest(['HEXISTS', API_KEYS, payload.jti])
-    return result.result === 1 ? payload : null
-  } catch {
-    return null
-  }
-}
+const validateApiKey = async (
+	apiKey: string,
+): Promise<ApiTokenPayload | null> => {
+	try {
+		const payload = decode(apiKey) as ApiTokenPayload;
+		const result = await upstashRest(["HEXISTS", API_KEYS, payload.jti]);
+		return result.result === 1 ? payload : null;
+	} catch {
+		return null;
+	}
+};
 
-export default async function publishMedia(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: { message: 'Method not allowed' } })
-  }
+export default async function publishMedia(
+	req: NextApiRequest,
+	res: NextApiResponse,
+) {
+	if (req.method !== "POST") {
+		return res.status(405).json({ error: { message: "Method not allowed" } });
+	}
 
-  // Get API key from header
-  const apiKey = req.headers['x-api-key']
-  if (!apiKey || typeof apiKey !== 'string') {
-    return res.status(401).json({ error: { message: 'API key required' } })
-  }
+	// Get API key from header
+	const apiKey = req.headers["x-api-key"];
+	if (!apiKey || typeof apiKey !== "string") {
+		return res.status(401).json({ error: { message: "API key required" } });
+	}
 
-  // Validate API key
-  const payload = await validateApiKey(apiKey)
-  if (!payload) {
-    return res.status(401).json({ error: { message: 'Invalid API key' } })
-  }
+	// Validate API key
+	const payload = await validateApiKey(apiKey);
+	if (!payload) {
+		return res.status(401).json({ error: { message: "Invalid API key" } });
+	}
 
-  // Get media type from URL parameter
-  const { media } = req.query as { media: MediaPlatform };
-  if (!['devto', 'hashnode'].includes(media)) {
-    return res.status(400).json({ error: { message: 'Unsupported media type' } });
-  }
+	// Get media type from URL parameter
+	const { media } = req.query as { media: MediaPlatform };
+	if (!["devto", "hashnode"].includes(media)) {
+		return res
+			.status(400)
+			.json({ error: { message: "Unsupported media type" } });
+	}
 
-  try {
-    // Validate request body
-    const { title, content, tags, is_draft } = req.body;
-    if (!title || !content || !Array.isArray(tags)) {
-      return res.status(400).json({ 
-        error: { message: 'Missing required fields: title, content, or tags' } 
-      });
-    }
+	try {
+		// Validate request body
+		const { title, content, tags, is_draft } = req.body;
+		if (!title || !content || !Array.isArray(tags)) {
+			return res.status(400).json({
+				error: { message: "Missing required fields: title, content, or tags" },
+			});
+		}
 
-    const publishData: PublishRequest = { title, content, tags, is_draft };
+		const publishData: PublishRequest = { title, content, tags, is_draft };
 
-    let response: PublishResponse;
-    switch (media) {
-      case 'devto':
-        response = await publishToDevTo(payload.jti, publishData);
-        break;
-      case 'hashnode':
-        response = await publishToHashnode(payload.jti, publishData);
-        break;
-      default:
-        throw new Error('Unsupported media type');
-    }
+		let response: PublishResponse;
+		switch (media) {
+			case "devto":
+				response = await publishToDevTo(payload.jti, publishData);
+				break;
+			case "hashnode":
+				response = await publishToHashnode(payload.jti, publishData);
+				break;
+			default:
+				throw new Error("Unsupported media type");
+		}
 
-    return res.status(200).json(response);
-
-  } catch (err) {
-    console.error(`Error publishing to ${media}:`, err);
-    return res.status(500).json({
-      error: { 
-        message: err instanceof Error ? err.message : 'An internal server error occurred'
-      },
-    });
-  }
+		return res.status(200).json(response);
+	} catch (err) {
+		console.error(`Error publishing to ${media}:`, err);
+		return res.status(500).json({
+			error: {
+				message:
+					err instanceof Error
+						? err.message
+						: "An internal server error occurred",
+			},
+		});
+	}
 }

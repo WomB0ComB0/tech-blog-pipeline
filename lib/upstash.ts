@@ -4,59 +4,59 @@
  * use it in your own projects.
  */
 async function upstash({
-  url,
-  token,
-  ...init
+	url,
+	token,
+	...init
 }: { url: string; token: string } & RequestInit) {
-  const res = await fetch(url, {
-    ...init,
-    headers: {
-      authorization: `Bearer ${token}`,
-      ...init.headers,
-    },
-  })
+	const res = await fetch(url, {
+		...init,
+		headers: {
+			authorization: `Bearer ${token}`,
+			...init.headers,
+		},
+	});
 
-  const data = res.headers.get('Content-Type')!.includes('application/json')
-    ? await res.json()
-    : await res.text()
+	const data = res.headers.get("Content-Type")!.includes("application/json")
+		? await res.json()
+		: await res.text();
 
-  if (res.ok) {
-    return data
-  } else {
-    throw new Error(
-      `Upstash failed with (${res.status}): ${
-        typeof data === 'string' ? data : JSON.stringify(data, null, 2)
-      }`
-    )
-  }
+	if (res.ok) {
+		return data;
+	} else {
+		throw new Error(
+			`Upstash failed with (${res.status}): ${
+				typeof data === "string" ? data : JSON.stringify(data, null, 2)
+			}`,
+		);
+	}
 }
 
 export async function upstashRest(
-  args: any[],
-  options?: { pipeline: boolean }
+	args: any[],
+	options?: { pipeline: boolean },
 ) {
-  const domain = process.env.UPSTASH_REST_API_DOMAIN
-  const token = process.env.UPSTASH_REST_API_TOKEN
+	const domain = process.env.UPSTASH_REST_API_DOMAIN;
+	const token = process.env.UPSTASH_REST_API_TOKEN;
 
-  if (!domain || !token) {
-    throw new Error('Missing required Upstash credentials of the REST API')
-  }
+	if (!domain || !token) {
+		throw new Error("Missing required Upstash credentials of the REST API");
+	}
 
-  return upstash({
-    token,
-    url: `https://${domain}${options?.pipeline ? '/pipeline' : ''}`,
-    method: 'POST',
-    body: JSON.stringify(args),
-  })
+	return upstash({
+		token,
+		url: `https://${domain}${options?.pipeline ? "/pipeline" : ""}`,
+		method: "POST",
+		body: JSON.stringify(args),
+	});
 }
 
 export async function upstashEdge(args: any[]) {
-  const domain = process.env.UPSTASH_EDGE_API_DOMAIN
-  const token = process.env.UPSTASH_EDGE_API_TOKEN
+	const domain = process.env.UPSTASH_EDGE_API_DOMAIN;
+	const token = process.env.UPSTASH_EDGE_API_TOKEN;
 
-  if (!domain || !token) {
-    throw new Error('Missing required Upstash credentials of the Edge API')
-  }
+	if (!domain || !token) {
+		throw new Error("Missing required Upstash credentials of the Edge API");
+	}
 
-  return upstash({ token, url: `https://${domain}/${args.join('/')}` })
+	return upstash({ token, url: `https://${domain}/${args.join("/")}` });
 }
