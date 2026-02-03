@@ -35,7 +35,7 @@
 		"@types/react": "latest",
 		"@types/uuid": "^11.0.0",
 		"autoprefixer": "^10.4.14",
-		"eslint": "^8.36.0",
+		"eslint": "^9.26.0",
 		"eslint-config-next": "canary",
 		"jest": "^29.7.0",
 		"postcss": "^8.4.21",
